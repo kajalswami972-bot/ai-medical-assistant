@@ -1,0 +1,64 @@
+.page-container {
+  padding: 20px;
+  max-width: 400px;
+  margin: 0 auto;
+  font-family: sans-serif;
+}
+
+.back-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  margin-bottom: 20px;
+  color: #555;
+}
+
+.input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  margin-top: 20px;
+}
+
+input, textarea {
+  padding: 12px;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  width: 100%;
+}
+
+button.action-btn {
+  background-color: #4a90e2;
+  color: white;
+  border: none;
+  padding: 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.card-box {
+    background: #ffffff;
+    border: 1px solid #e0e0e0;
+    border-radius: 20px;
+    padding: 20px;
+    margin: 20px;
+}
+.btn-main {
+    width: 100%;
+    background: #009688; /* Green theme */
+    color: white;
+    padding: 14px;
+    border: none;
+    border-radius: 12px;
+    font-weight: 600;
+    cursor: pointer;
+}
+.btn-secondary {
+    border: 1px solid #ddd;
+    padding: 10px;
+    border-radius: 10px;
+    background: white;
+    cursor: pointer;
+}
