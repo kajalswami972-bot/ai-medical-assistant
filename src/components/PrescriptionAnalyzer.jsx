@@ -17,10 +17,10 @@ export default function PrescriptionAnalyzer({ setScreen }) {
   const analyze = async () => {
     if (!base64Image) return alert("Pehle photo upload karo!");
     setLoading(true);
-    setResult("Analyzing... please wait..."); // Loading message
+    setResult("Analyzing... please wait...");
     
     try {
-      const response = await fetch("http://localhost:5000/api/analyze-report", {
+      const response = await fetch("https://ai-medical-backend-0ick.onrender.com/api/analyze-report", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ base64Image }),
@@ -49,17 +49,17 @@ export default function PrescriptionAnalyzer({ setScreen }) {
 
       <h3>Analyze Report (Summary):</h3>
       
-      {/* Scrollable Result Area (Yeh box ab BDA ho gaya hai) */}
+      {/* Scrollable Result Area (400px height) */}
       <div style={{ 
         width: '100%', 
-        height: '400px',        // <--- YEHI CHANGE KIYA HAI (200px se 400px)
+        height: '400px',        
         border: '1px solid #ccc', 
         borderRadius: '8px', 
         padding: '15px',
-        overflowY: 'auto',      // Scrollbar rahega
+        overflowY: 'auto',      
         backgroundColor: '#fff',
         marginBottom: '20px',
-        boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.1)' // Chhota sa effect
+        boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.1)' 
       }}>
         <pre style={{ whiteSpace: "pre-wrap", margin: 0 }}>
           {loading ? "Analyzing... please wait..." : (result || "Result come here...")}

@@ -1,7 +1,12 @@
-import React, { useEffect, useRef } from 'react' // 1. useRef aur useEffect import kiya
+import React, { useEffect, useRef, useState } from 'react' // useState bhi add kiya hai agar local state manage karni ho
 import ReactMarkdown from 'react-markdown'
 
-function SymptomChecker({ messages, inputText, setInputText, sendMessage, setScreen, isLoading }) {
+function SymptomChecker({ setScreen }) {
+  const [messages, setMessages] = useState([
+    { id: 1, sender: 'ai', text: 'Hello! Main aapka AI Health Assistant hoon. Aapko kya pareshani ho rahi hai?' }
+  ]);
+  const [inputText, setInputText] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   
   // 2. Scroll ke liye ref create kiya
   const messagesEndRef = useRef(null);
@@ -13,6 +18,41 @@ function SymptomChecker({ messages, inputText, setInputText, sendMessage, setScr
 
   // 4. Jab bhi 'messages' change honge, scroll karega
   useEffect(scrollToBottom, [messages]);
+
+  // 5. Send message function with Render backend connection
+  const sendMessage = async () => {
+    if (!inputText.trim()) return;
+
+    const userMsgText = inputText;
+    const newUserMessage = { id: Date.now(), sender: 'user', text: userMsgText };
+    
+    setMessages(prev => [...prev, newUserMessage]);
+    setInputText('');
+    setIsLoading(true);
+
+    try {
+      const response = await fetch("https://ai-medical-backend-0ick.onrender.com/api/check-symptoms", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ symptoms: userMsgText }),
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        const aiMessage = { id: Date.now() + 1, sender: 'ai', text: data.result };
+        setMessages(prev => [...prev, aiMessage]);
+      } else {
+        const errorMessage = { id: Date.now() + 1, sender: 'ai', text: "Error: " + (data.error || "Something went wrong") };
+        setMessages(prev => [...prev, errorMessage]);
+      }
+    } catch (err) {
+      const errorConnectionMsg = { id: Date.now() + 1, sender: 'ai', text: "🚨 Unable to connect to the server." };
+      setMessages(prev => [...prev, errorConnectionMsg]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <div className="chat-container">
@@ -37,7 +77,7 @@ function SymptomChecker({ messages, inputText, setInputText, sendMessage, setScr
           </div>
         )}
         
-        {/* 5. Yeh invisible div bottom mark karega */}
+        {/* Yeh invisible div bottom mark karega */}
         <div ref={messagesEndRef} />
       </div>
 
@@ -55,4 +95,4 @@ function SymptomChecker({ messages, inputText, setInputText, sendMessage, setScr
   )
 }
 
-export default SymptomChecker
+export default SymptomChecker;
