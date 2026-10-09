@@ -26,10 +26,20 @@ export default function PrescriptionAnalyzer({ setScreen }) {
         body: JSON.stringify({ base64Image }),
       });
       const data = await response.json();
-      if (response.ok) setResult(data.result);
-      else alert("Error: " + data.error);
+      
+      if (response.ok) {
+        // Clean any <br> tags or HTML markup so they don't show up as raw text
+        const cleanedResult = (data.result || "")
+          .replace(/<br\s*[\/]?>/gi, '\n')
+          .replace(/<\/?[^>]+(>|$)/g, "");
+        setResult(cleanedResult);
+      } else {
+        alert("Error: " + data.error);
+        setResult("Error occurred.");
+      }
     } catch (err) {
       alert("Unable to connect to the server.");
+      setResult("Connection error.");
     } finally {
       setLoading(false);
     }

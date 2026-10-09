@@ -40,7 +40,12 @@ function SymptomChecker({ setScreen }) {
       const data = await response.json();
       
       if (response.ok) {
-        const aiMessage = { id: Date.now() + 1, sender: 'ai', text: data.result };
+        // Clean any accidental HTML breaks or tags before rendering in markdown
+        const cleanedText = (data.result || "")
+          .replace(/<br\s*[\/]?>/gi, '\n')
+          .replace(/<\/?[^>]+(>|$)/g, "");
+
+        const aiMessage = { id: Date.now() + 1, sender: 'ai', text: cleanedText };
         setMessages(prev => [...prev, aiMessage]);
       } else {
         const errorMessage = { id: Date.now() + 1, sender: 'ai', text: "Error: " + (data.error || "Something went wrong") };
