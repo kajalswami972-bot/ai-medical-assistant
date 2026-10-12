@@ -8,6 +8,43 @@ export default function MedicineReminder({ setScreen }) {
   
   const [form, setForm] = useState({ name: '', dose: '', time: '', startDate: '', endDate: '' });
 
+  // 1. Notification Permission Request
+  useEffect(() => {
+    if ("Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+  }, []);
+
+  // 2. Notification Interval Checker (har minute check karega)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = new Date();
+      const currentHours = String(now.getHours()).padStart(2, '0');
+      const currentMinutes = String(now.getMinutes()).padStart(2, '0');
+      const currentTime = `${currentHours}:${currentMinutes}`;
+
+      medicines.forEach((med) => {
+        if (med.time === currentTime && !med.notifiedToday) {
+          // Trigger Push Notification
+          if ("Notification" in window && Notification.permission === "granted") {
+            new Notification("💊 Medicine Reminder!", {
+              body: `Time to take ${med.name} (${med.dose})`,
+              icon: "/vite.svg"
+            });
+          } else {
+            alert(`💊 Reminder: Time to take ${med.name} (${med.dose})!`);
+          }
+
+          // Mark as notified for today
+          med.notifiedToday = true;
+          setMedicines([...medicines]);
+        }
+      });
+    }, 10000); // Check every 10 seconds
+
+    return () => clearInterval(interval);
+  }, [medicines]);
+
   // Data save karne ke liye
   useEffect(() => {
     localStorage.setItem('myMedicines', JSON.stringify(medicines));
@@ -16,7 +53,7 @@ export default function MedicineReminder({ setScreen }) {
   // Handle Save
   const handleSave = () => {
     if (form.name && form.dose && form.time) {
-      setMedicines([...medicines, form]);
+      setMedicines([...medicines, { ...form, notifiedToday: false }]);
       setForm({ name: '', dose: '', time: '', startDate: '', endDate: '' });
       alert("Medicine saved successfully!");
     } else {
