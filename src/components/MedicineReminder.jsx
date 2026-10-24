@@ -1,123 +1,432 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 
 export default function MedicineReminder({ setScreen }) {
-  const [medicines, setMedicines] = useState(() => {
-    const saved = localStorage.getItem('myMedicines');
-    return saved ? JSON.parse(saved) : [];
-  });
-  
-  const [form, setForm] = useState({ name: '', dose: '', time: '', startDate: '', endDate: '' });
+const [medicines, setMedicines] = useState(() => {
+try {
+const saved = localStorage.getItem("myMedicines");
+return saved ? JSON.parse(saved) : [];
+} catch (error) {
+console.error("Could not load medicines:", error);
+return [];
+}
+});
 
-  // 1. Notification Permission Request
-  useEffect(() => {
-    if ("Notification" in window && Notification.permission === "default") {
-      Notification.requestPermission();
-    }
-  }, []);
+const [form, setForm] = useState({
+name: "",
+dose: "",
+time: "",
+startDate: new Date().toLocaleDateString("en-CA"),
+endDate: "",
+});
 
-  // 2. Notification Interval Checker (har minute check karega)
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const now = new Date();
-      const currentHours = String(now.getHours()).padStart(2, '0');
-      const currentMinutes = String(now.getMinutes()).padStart(2, '0');
-      const currentTime = `${currentHours}:${currentMinutes}`;
+const [notificationPermission, setNotificationPermission] = useState(
+"Notification" in window ? Notification.permission : "unsupported"
+);
 
-      medicines.forEach((med) => {
-        if (med.time === currentTime && !med.notifiedToday) {
-          // Trigger Push Notification
-          if ("Notification" in window && Notification.permission === "granted") {
-            new Notification("💊 Medicine Reminder!", {
-              body: `Time to take ${med.name} (${med.dose})`,
-              icon: "/vite.svg"
-            });
-          } else {
-            alert(`💊 Reminder: Time to take ${med.name} (${med.dose})!`);
-          }
+// Save medicines whenever the list changes
+useEffect(() => {
+localStorage.setItem("myMedicines", JSON.stringify(medicines));
+}, [medicines]);
 
-          // Mark as notified for today
-          med.notifiedToday = true;
-          setMedicines([...medicines]);
+// Request notification permission
+const enableNotifications = async () => {
+if (!("Notification" in window)) {
+alert("Your browser does not support notifications.");
+return;
+}
+
+try {
+  const permission = await Notification.requestPermission();
+  setNotificationPermission(permission);
+
+  if (permission === "granted") {
+    alert("Notifications enabled successfully!");
+  } else {
+    alert("Please allow notifications in your browser settings.");
+  }
+} catch (error) {
+  console.error("Notification permission error:", error);
+  alert("Unable to enable notifications.");
+}
+
+};
+
+// Check reminders while the website is open
+useEffect(() => {
+const checkReminders = () => {
+const now = new Date();
+
+  const currentTime =
+    String(now.getHours()).padStart(2, "0") +
+    ":" +
+    String(now.getMinutes()).padStart(2, "0");
+
+  const today =
+    String(now.getFullYear()) +
+    "-" +
+    String(now.getMonth() + 1).padStart(2, "0") +
+    "-" +
+    String(now.getDate()).padStart(2, "0");
+
+  setMedicines((previousMedicines) => {
+    let hasChanges = false;
+
+    const updatedMedicines = previousMedicines.map((medicine) => {
+      const isWithinDateRange =
+        (!medicine.startDate || today >= medicine.startDate) &&
+        (!medicine.endDate || today <= medicine.endDate);
+
+      const alreadyNotifiedToday =
+        medicine.lastNotifiedDate === today;
+
+      const shouldNotify =
+        isWithinDateRange &&
+        medicine.time === currentTime &&
+        !alreadyNotifiedToday;
+
+      if (!shouldNotify) {
+        return medicine;
+      }
+
+      hasChanges = true;
+
+      // Mark as notified so it does not repeat during this minute
+      const updatedMedicine = {
+        ...medicine,
+        lastNotifiedDate: today,
+      };
+
+      // Show notification if permission is granted
+      if (
+        "Notification" in window &&
+        Notification.permission === "granted"
+      ) {
+        try {
+          new Notification("💊 Medicine Reminder", {
+            body:
+              "Time to take " +
+              medicine.name +
+              " (" +
+              medicine.dose +
+              ").",
+          });
+        } catch (error) {
+          console.error("Could not display notification:", error);
         }
-      });
-    }, 10000); // Check every 10 seconds
+      } else {
+        alert(
+          "💊 Medicine Reminder!\nTime to take " +
+            medicine.name +
+            " (" +
+            medicine.dose +
+            ")."
+        );
+      }
 
-    return () => clearInterval(interval);
-  }, [medicines]);
+      return updatedMedicine;
+    });
 
-  // Data save karne ke liye
-  useEffect(() => {
-    localStorage.setItem('myMedicines', JSON.stringify(medicines));
-  }, [medicines]);
+    return hasChanges ? updatedMedicines : previousMedicines;
+  });
+};
 
-  // Handle Save
-  const handleSave = () => {
-    if (form.name && form.dose && form.time) {
-      setMedicines([...medicines, { ...form, notifiedToday: false }]);
-      setForm({ name: '', dose: '', time: '', startDate: '', endDate: '' });
-      alert("Medicine saved successfully!");
-    } else {
-      alert("Please fill all required fields (Name, Dose, Time)!");
+// Check immediately and then every 10 seconds
+checkReminders();
+
+const intervalId = setInterval(checkReminders, 10000);
+
+return () => clearInterval(intervalId);
+
+}, []);
+
+// Handle form fields
+const handleChange = (event) => {
+const { name, value } = event.target;
+
+setForm((previousForm) => ({
+  ...previousForm,
+  [name]: value,
+}));
+
+};
+
+// Save a new medicine
+const handleSave = (event) => {
+event.preventDefault();
+
+if (
+  !form.name.trim() ||
+  !form.dose.trim() ||
+  !form.time
+) {
+  alert("Please enter medicine name, dose, and time.");
+  return;
+}
+
+if (
+  form.startDate &&
+  form.endDate &&
+  form.endDate < form.startDate
+) {
+  alert("End date cannot be earlier than start date.");
+  return;
+}
+
+const newMedicine = {
+  id: `${Date.now()}-${Math.random()}`,
+  name: form.name.trim(),
+  dose: form.dose.trim(),
+  time: form.time,
+  startDate: form.startDate,
+  endDate: form.endDate,
+  lastNotifiedDate: "",
+  takenDates: [],
+};
+
+setMedicines((previousMedicines) => [
+  ...previousMedicines,
+  newMedicine,
+]);
+
+setForm({
+  name: "",
+  dose: "",
+  time: "",
+  startDate: new Date().toLocaleDateString("en-CA"),
+  endDate: "",
+});
+
+alert("Medicine saved successfully!");
+
+};
+
+// Mark a medicine as taken today
+const handleMarkTaken = (id) => {
+const now = new Date();
+
+const today =
+  String(now.getFullYear()) +
+  "-" +
+  String(now.getMonth() + 1).padStart(2, "0") +
+  "-" +
+  String(now.getDate()).padStart(2, "0");
+
+setMedicines((previousMedicines) =>
+  previousMedicines.map((medicine) => {
+    if (medicine.id !== id) {
+      return medicine;
     }
-  };
 
-  // Medicine Done (Delete) karne ke liye
-  const handleDone = (index) => {
-    const updatedList = medicines.filter((_, i) => i !== index);
-    setMedicines(updatedList);
-  };
+    const takenDates = medicine.takenDates || [];
 
-  return (
-    <div style={{ padding: '20px', fontFamily: 'sans-serif', background: '#f9f9f9', minHeight: '100vh' }}>
-      <div style={{ display: 'flex', alignItems: 'center', marginBottom: '20px' }}>
-        <span onClick={() => setScreen('dashboard')} style={{ cursor: 'pointer', fontSize: '24px' }}>←</span>
-        <h2 style={{ marginLeft: '15px' }}>Medicine Reminder</h2>
-      </div>
+    if (takenDates.includes(today)) {
+      return medicine;
+    }
 
-      <div style={{ background: '#fff', border: '1px solid #ddd', borderRadius: '20px', padding: '20px', marginBottom: '20px' }}>
-        <h3>Add Medicine</h3>
-        <label>Medicine Name</label>
-        <input style={{ width: '100%', padding: '12px', margin: '5px 0 10px', borderRadius: '10px', border: '1px solid #ccc' }} value={form.name} onChange={(e) => setForm({...form, name: e.target.value})} placeholder="e.g., PCM" />
-        
-        <label>Dose</label>
-        <input style={{ width: '100%', padding: '12px', margin: '5px 0 10px', borderRadius: '10px', border: '1px solid #ccc' }} value={form.dose} onChange={(e) => setForm({...form, dose: e.target.value})} placeholder="e.g., 1 tablet" />
-        
-        <label>Time</label>
-        <input type="time" style={{ width: '100%', padding: '12px', margin: '5px 0 10px', borderRadius: '10px', border: '1px solid #ccc' }} value={form.time} onChange={(e) => setForm({...form, time: e.target.value})} />
+    return {
+      ...medicine,
+      takenDates: [...takenDates, today],
+    };
+  })
+);
 
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <div style={{ flex: 1 }}>
-            <label>Start Date</label>
-            <input type="date" style={{ width: '100%', padding: '12px', margin: '5px 0 10px', borderRadius: '10px', border: '1px solid #ccc' }} value={form.startDate} onChange={(e) => setForm({...form, startDate: e.target.value})} />
-          </div>
-          <div style={{ flex: 1 }}>
-            <label>End Date</label>
-            <input type="date" style={{ width: '100%', padding: '12px', margin: '5px 0 10px', borderRadius: '10px', border: '1px solid #ccc' }} value={form.endDate} onChange={(e) => setForm({...form, endDate: e.target.value})} />
-          </div>
-        </div>
+};
 
-        <button onClick={handleSave} style={{ width: '100%', padding: '15px', background: '#009688', color: '#fff', border: 'none', borderRadius: '15px', cursor: 'pointer', fontWeight: 'bold' }}>Save Medicine</button>
-      </div>
+// Delete a medicine
+const handleDelete = (id) => {
+const confirmed = window.confirm(
+"Are you sure you want to delete this medicine?"
+);
 
-      <div>
-        <h3>Today's Medicines</h3>
-        {medicines.length > 0 ? (
-          medicines.map((med, index) => (
-            <div key={index} style={{ background: '#fff', padding: '15px', borderRadius: '12px', border: '1px solid #ddd', marginBottom: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <strong>{med.name}</strong>
-                <p style={{ margin: '5px 0 0', fontSize: '14px', color: '#555' }}>Dose: {med.dose} | Time: {med.time}</p>
-              </div>
-              <button 
-                onClick={() => handleDone(index)}
-                style={{ background: '#009688', color: '#fff', border: 'none', padding: '8px 12px', borderRadius: '8px', cursor: 'pointer' }}
-              >
-                Done
-              </button>
-            </div>
-          ))
-        ) : <p style={{ color: '#888' }}>No medicines scheduled for now.</p>}
-      </div>
-    </div>
+if (confirmed) {
+  setMedicines((previousMedicines) =>
+    previousMedicines.filter((medicine) => medicine.id !== id)
   );
+}
+
+};
+
+// Get today's date in YYYY-MM-DD format
+const now = new Date();
+
+const today =
+String(now.getFullYear()) +
+"-" +
+String(now.getMonth() + 1).padStart(2, "0") +
+"-" +
+String(now.getDate()).padStart(2, "0");
+
+return (
+<div className="medicine-reminder">
+<h2>💊 Medicine Reminder</h2>
+
+  <p>
+    Add your medicines and set reminders for your schedule.
+  </p>
+
+  <button
+    type="button"
+    onClick={enableNotifications}
+  >
+    🔔 Enable Notifications
+  </button>
+
+  <p>
+    Notification status: <strong>{notificationPermission}</strong>
+  </p>
+
+  <form onSubmit={handleSave}>
+    <div>
+      <label htmlFor="medicine-name">
+        Medicine Name *
+      </label>
+
+      <input
+        id="medicine-name"
+        type="text"
+        name="name"
+        value={form.name}
+        onChange={handleChange}
+        placeholder="Enter medicine name"
+        required
+      />
+    </div>
+
+    <div>
+      <label htmlFor="medicine-dose">
+        Dose *
+      </label>
+
+      <input
+        id="medicine-dose"
+        type="text"
+        name="dose"
+        value={form.dose}
+        onChange={handleChange}
+        placeholder="e.g. 1 tablet"
+        required
+      />
+    </div>
+
+    <div>
+      <label htmlFor="medicine-time">
+        Reminder Time *
+      </label>
+
+      <input
+        id="medicine-time"
+        type="time"
+        name="time"
+        value={form.time}
+        onChange={handleChange}
+        required
+      />
+    </div>
+
+    <div>
+      <label htmlFor="medicine-start">
+        Start Date
+      </label>
+
+      <input
+        id="medicine-start"
+        type="date"
+        name="startDate"
+        value={form.startDate}
+        onChange={handleChange}
+      />
+    </div>
+
+    <div>
+      <label htmlFor="medicine-end">
+        End Date
+      </label>
+
+      <input
+        id="medicine-end"
+        type="date"
+        name="endDate"
+        value={form.endDate}
+        onChange={handleChange}
+      />
+    </div>
+
+    <button type="submit">
+      ➕ Save Medicine
+    </button>
+  </form>
+
+  <hr />
+
+  <h3>📋 Saved Medicines</h3>
+
+  {medicines.length === 0 ? (
+    <p>No medicines added yet.</p>
+  ) : (
+    medicines.map((medicine) => {
+      const takenToday = (
+        medicine.takenDates || []
+      ).includes(today);
+
+      return (
+        <div
+          key={medicine.id}
+          className="medicine-card"
+        >
+          <h4>{medicine.name}</h4>
+
+          <p>
+            <strong>Dose:</strong> {medicine.dose}
+          </p>
+
+          <p>
+            <strong>Time:</strong> {medicine.time}
+          </p>
+
+          <p>
+            <strong>Start Date:</strong>{" "}
+            {medicine.startDate || "Not specified"}
+          </p>
+
+          <p>
+            <strong>End Date:</strong>{" "}
+            {medicine.endDate || "Not specified"}
+          </p>
+
+          <p>
+            <strong>Status:</strong>{" "}
+            {takenToday ? "✅ Taken today" : "⏰ Not marked as taken"}
+          </p>
+
+          {!takenToday && (
+            <button
+              type="button"
+              onClick={() => handleMarkTaken(medicine.id)}
+            >
+              ✅ Mark as Taken
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={() => handleDelete(medicine.id)}
+          >
+            🗑️ Delete
+          </button>
+        </div>
+      );
+    })
+  )}
+
+  {setScreen && (
+    <button
+      type="button"
+      onClick={() => setScreen("home")}
+    >
+      ⬅️ Back to Home
+    </button>
+  )}
+</div>
+
+);
 }
